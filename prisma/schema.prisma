@@ -1,0 +1,50 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite has no native enum type, so status is a plain string:
+// User.status: "active" | "blocked", UseCase.status: "active" | "paused".
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  team          String?
+  monthlyBudget Float    @default(0)
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+
+  useCases     UseCase[]
+  usageEntries UsageEntry[]
+}
+
+model UseCase {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  budgetCap   Float    @default(0)
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  usageEntries UsageEntry[]
+}
+
+model UsageEntry {
+  id     String   @id @default(cuid())
+  amount Float
+  note   String?
+  date   DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  useCaseId String?
+  useCase   UseCase? @relation(fields: [useCaseId], references: [id], onDelete: SetNull)
+}
