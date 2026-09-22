@@ -5,7 +5,6 @@ they're using it for, and stop budget overruns before they happen.
 
 ## What it does
 
-- **Single admin login** — one password gates the whole app.
 - **Users** — add pilot participants, give each one a monthly budget, block
   anyone who needs to pause, and log usage against them.
 - **Use cases** — track what the pilot is being used for, who owns each one,
@@ -29,27 +28,24 @@ storage. No external services required to run it.
 
 ```bash
 npm install
-cp .env.example .env   # then edit ADMIN_PASSWORD and SESSION_SECRET
+cp .env.example .env
 npm run db:push        # creates dev.db from the Prisma schema
 npm run dev            # http://localhost:3000
 ```
-
-Sign in with the password you set as `ADMIN_PASSWORD`.
 
 Optional: `npm run db:seed` adds two example users and use cases so the
 dashboard isn't empty on first run (it no-ops if you already have data).
 
 ## Environment variables
 
-| Variable         | Purpose                                              |
-| ---------------- | ----------------------------------------------------- |
-| `DATABASE_URL`   | SQLite file path, e.g. `file:./dev.db`                |
-| `ADMIN_PASSWORD` | The password for the single admin login               |
-| `SESSION_SECRET` | Random string used to sign the login session cookie    |
+| Variable       | Purpose                                |
+| -------------- | --------------------------------------- |
+| `DATABASE_URL` | SQLite file path, e.g. `file:./dev.db`  |
 
-Set real, unique values for `ADMIN_PASSWORD` and `SESSION_SECRET` before
-using this anywhere but your own machine — the `.env.example` defaults are
-placeholders only.
+There is no login — anyone who can reach the app's URL has full admin
+access. Fine for a local pilot tool only you can reach; if you ever deploy
+this somewhere reachable by others, put access control back in front of it
+(see "Known limitations" below).
 
 ## Data model
 
@@ -66,7 +62,9 @@ placeholders only.
   Anthropic Console or API for automatic cost data yet. If you want that,
   the next step is a scheduled job that pulls usage from the Anthropic API
   and calls the same `POST /api/usage` endpoint this UI uses.
-- Single shared admin password, no per-admin accounts or audit log of who
-  changed what.
+- No authentication at all — the app trusts whoever can reach it. Only run
+  this somewhere private (your own machine, or a deployment locked down by
+  network access / a reverse-proxy login) until real auth is added back.
+- No audit log of who changed what.
 - No email/Slack alerting yet — over-budget and blocked users only show up
   when someone opens the dashboard.
