@@ -34,10 +34,18 @@ storage.
    `claude/pensive-archimedes-lysyb2` (or set it later in
    **Settings → Git → Production Branch**). Click **Deploy** — it will fail
    the first time because there's no database yet, that's expected.
-4. Open the project, go to the **Storage** tab, **Create Database → Postgres**,
-   and connect it to this project. Vercel wires up the `POSTGRES_PRISMA_URL`
-   and `POSTGRES_URL_NON_POOLING` environment variables automatically — you
-   don't need to type any connection string yourself.
+4. You need one Postgres database connected to this project, with its
+   connection string saved as an environment variable named exactly
+   `DATABASE_URL`:
+   - Go to the project's **Storage** tab. If a database is already listed
+     there, click it and look for a **"Connect"** or **".env.local"**
+     section showing its connection string (starts with `postgresql://`).
+     If nothing is listed, click **Create Database → Postgres** and create
+     one.
+   - Copy that connection string.
+   - Go to **Settings → Environment Variables → Add New**. Set the key to
+     `DATABASE_URL`, paste the connection string as the value, check all
+     three environment boxes (Production, Preview, Development), and save.
 5. Go to **Deployments** and **Redeploy** the latest deployment. This build
    creates the database tables automatically (see `package.json`'s `build`
    script) and should succeed.
@@ -55,7 +63,7 @@ Requires your own Postgres database (e.g. a free one from
 
 ```bash
 npm install
-cp .env.example .env   # fill in your Postgres connection strings
+cp .env.example .env   # fill in your Postgres connection string
 npm run db:push        # creates the tables from the Prisma schema
 npm run dev            # http://localhost:3000
 ```
@@ -65,13 +73,13 @@ dashboard isn't empty on first run (it no-ops if you already have data).
 
 ## Environment variables
 
-| Variable                   | Purpose                                              |
-| --------------------------- | ----------------------------------------------------- |
-| `POSTGRES_PRISMA_URL`       | Pooled Postgres connection string, used by the app     |
-| `POSTGRES_URL_NON_POOLING`  | Direct Postgres connection string, used for schema changes |
+| Variable       | Purpose                             |
+| -------------- | ------------------------------------ |
+| `DATABASE_URL` | Postgres connection string            |
 
-On Vercel, both are set automatically once you connect a Postgres database
-in the Storage tab (step 4 above).
+On Vercel this has to be added by hand (step 4 above) — connecting a
+database in the Storage tab doesn't always name its variable `DATABASE_URL`
+on its own.
 
 ## Data model
 
