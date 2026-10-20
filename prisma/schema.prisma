@@ -19,6 +19,15 @@ model User {
   status        String   @default("active")
   createdAt     DateTime @default(now())
 
+  // When set, this user's real Anthropic Console workspace. "Sync real
+  // usage" pulls that workspace's month-to-date cost from the Anthropic
+  // Cost Admin API into syncedSpend (the Cost API only breaks spend down
+  // by workspace, not by individual API key, so a workspace per pilot
+  // user is required for this to attribute spend to the right person).
+  anthropicWorkspaceId String?
+  syncedSpend           Float    @default(0)
+  lastSyncedAt          DateTime?
+
   useCases     UseCase[]
   usageEntries UsageEntry[]
 }

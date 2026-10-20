@@ -16,7 +16,10 @@ export async function getUsersWithUsage() {
     monthlyBudget: u.monthlyBudget,
     status: u.status,
     useCaseCount: u.useCases.length,
-    spent: u.usageEntries.reduce((sum, e) => sum + e.amount, 0),
+    anthropicWorkspaceId: u.anthropicWorkspaceId,
+    syncedSpend: u.syncedSpend,
+    lastSyncedAt: u.lastSyncedAt ? u.lastSyncedAt.toISOString() : null,
+    spent: u.usageEntries.reduce((sum, e) => sum + e.amount, 0) + u.syncedSpend,
   }));
 }
 

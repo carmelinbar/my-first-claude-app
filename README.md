@@ -13,11 +13,13 @@ they're using it for, and stop budget overruns before they happen.
   attention" list of anyone over budget or blocked.
 - **Budget alerts** — every budget bar turns amber at 80% of cap and red at
   100%+, on the dashboard, the users page, and the use cases page.
+- **Real Anthropic usage (optional)** — link a user to an Anthropic Console
+  workspace and click "Sync real usage" to pull their actual month-to-date
+  spend straight from the Anthropic Cost API, instead of logging it by hand.
 
-Usage/cost entries are logged manually (via the "+ Log usage" action on a
-user or use case). This is intentionally a lightweight tracking tool, not an
-API usage integration — see "Next steps" below if you want it to pull real
-numbers automatically.
+Usage/cost can be entered manually (via "+ Log usage") or pulled from the
+real Anthropic Cost API per user (see "Syncing real Anthropic usage"
+below) — the two add together into each user's total spend.
 
 ## Stack
 
@@ -73,29 +75,65 @@ dashboard isn't empty on first run (it no-ops if you already have data).
 
 ## Environment variables
 
-| Variable       | Purpose                             |
-| -------------- | ------------------------------------ |
-| `DATABASE_URL` | Postgres connection string            |
+| Variable               | Purpose                                                      |
+| ----------------------- | ------------------------------------------------------------ |
+| `DATABASE_URL`          | Postgres connection string                                    |
+| `ANTHROPIC_ADMIN_KEY`   | Optional. Admin API key, enables "Sync real usage" (see below) |
 
-On Vercel this has to be added by hand (step 4 above) — connecting a
-database in the Storage tab doesn't always name its variable `DATABASE_URL`
-on its own.
+On Vercel, `DATABASE_URL` has to be added by hand (step 4 above) —
+connecting a database in the Storage tab doesn't always name its variable
+`DATABASE_URL` on its own.
+
+## Syncing real Anthropic usage
+
+Instead of (or alongside) manually logging usage, you can pull a user's
+actual spend straight from Anthropic:
+
+1. In the [Anthropic Console](https://platform.claude.com), create an
+   **Admin API key** (Settings → Organization → Admin API keys) — this
+   requires being an organization admin/owner.
+2. Set it as the `ANTHROPIC_ADMIN_KEY` environment variable (in Vercel:
+   **Settings → Environment Variables**, same as `DATABASE_URL`; locally:
+   in `.env`).
+3. Give each pilot participant their own **workspace** in the Anthropic
+   Console (Settings → Organization → Workspaces), and have them use an API
+   key that belongs to that workspace for their pilot work.
+4. On the Users page here, enter that workspace's ID (looks like
+   `wrkspc_...`, found in the Console) under "Anthropic workspace" for the
+   matching user.
+5. Click **Sync real usage** — this pulls each linked user's month-to-date
+   cost from the Anthropic Cost API and adds it to their spend total.
+
+**Why a workspace per user, not just an API key:** Anthropic's Cost API can
+only break spend down by workspace (or by cost-item description) — not by
+individual API key — so workspace-per-user is what makes it possible to
+attribute real dollar cost to the right pilot participant. Click "Sync real
+usage" again any time to refresh; data usually shows up within a few
+minutes of being incurred.
 
 ## Data model
 
-- `User` — name, email, team, monthly budget, status (`active`/`blocked`).
+- `User` — name, email, team, monthly budget, status (`active`/`blocked`),
+  optional linked Anthropic workspace, and `syncedSpend` (real spend from
+  the last sync).
 - `UseCase` — name, description, owner (a `User`), budget cap, status
   (`active`/`paused`).
-- `UsageEntry` — an amount logged against a user and, optionally, a use case.
-  A user's "spent" total is the sum of their usage entries; same for a use
-  case.
+- `UsageEntry` — a manually logged amount against a user and, optionally, a
+  use case. A user's total "spent" is their usage entries plus
+  `syncedSpend`; a use case's is just its own usage entries (real synced
+  usage is tracked per user, not per use case).
 
 ## Known limitations / next steps
 
-- Usage is entered manually — there's no live integration with the
-  Anthropic Console or API for automatic cost data yet. If you want that,
-  the next step is a scheduled job that pulls usage from the Anthropic API
-  and calls the same `POST /api/usage` endpoint this UI uses.
+- Real usage syncs per *user* only — a use case's spend is still manual,
+  since Anthropic's Cost API can't break spend down below workspace level.
+  If you need per-use-case real cost, the next step is giving each use case
+  its own API key and tracking token counts via the Usage API (grouped by
+  `api_key_id`) priced against Anthropic's published per-model rates, since
+  the Cost API itself doesn't support that grouping.
+- "Sync real usage" is a manual button, not automatic — click it whenever
+  you want fresh numbers (or wire a cron job to `POST /api/sync-usage` if
+  you want it automatic).
 - No authentication at all — the app trusts whoever can reach it. Only run
   this somewhere private (your own machine, or a deployment locked down by
   network access / a reverse-proxy login) until real auth is added back.

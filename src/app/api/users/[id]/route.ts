@@ -14,6 +14,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (typeof body.status === "string" && ["active", "blocked"].includes(body.status)) {
     data.status = body.status;
   }
+  if (typeof body.anthropicWorkspaceId === "string") {
+    data.anthropicWorkspaceId = body.anthropicWorkspaceId.trim() || null;
+  }
 
   const user = await prisma.user.update({ where: { id: params.id }, data });
   return NextResponse.json(user);

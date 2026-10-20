@@ -19,11 +19,34 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, spent: u.spent + amount } : u)));
   }
 
+  function applySync(updates: { id: string; syncedSpend: number; lastSyncedAt: string }[]) {
+    setUsers((prev) =>
+      prev.map((u) => {
+        const update = updates.find((up) => up.id === u.id);
+        if (!update) return u;
+        const manualSpend = u.spent - u.syncedSpend;
+        return {
+          ...u,
+          syncedSpend: update.syncedSpend,
+          lastSyncedAt: update.lastSyncedAt,
+          spent: manualSpend + update.syncedSpend,
+        };
+      })
+    );
+  }
+
   return (
     <div className="space-y-6">
       <AddUserForm
-        onCreated={(user) => setUsers((prev) => [...prev, { ...user, spent: 0, useCaseCount: 0 }])}
+        onCreated={(user) =>
+          setUsers((prev) => [
+            ...prev,
+            { ...user, spent: 0, useCaseCount: 0, syncedSpend: 0, lastSyncedAt: null },
+          ])
+        }
       />
+
+      <SyncUsageBar onSynced={applySync} />
 
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-sm">
@@ -31,6 +54,7 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
             <tr>
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Team</th>
+              <th className="px-4 py-3">Anthropic workspace</th>
               <th className="px-4 py-3">Budget</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Log usage</th>
@@ -49,7 +73,7 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                   No users yet. Add one above.
                 </td>
               </tr>
@@ -61,15 +85,74 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
   );
 }
 
+function SyncUsageBar({
+  onSynced,
+}: {
+  onSynced: (updates: { id: string; syncedSpend: number; lastSyncedAt: string }[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSync() {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/sync-usage", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to sync usage");
+        return;
+      }
+      onSynced(data.updated ?? []);
+      setMessage(
+        data.message ??
+          `Synced real spend for ${data.updated?.length ?? 0} user${data.updated?.length === 1 ? "" : "s"}.`
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 className="font-semibold text-slate-900">Real Anthropic usage</h2>
+        <p className="text-sm text-slate-500">
+          Pulls this month&apos;s actual spend from the Anthropic Cost API for every user with an
+          Anthropic workspace linked below.
+        </p>
+      </div>
+      <div className="text-right">
+        <button className="btn" onClick={handleSync} disabled={busy}>
+          {busy ? "Syncing..." : "Sync real usage"}
+        </button>
+        {message && <p className="mt-1 text-xs text-slate-500">{message}</p>}
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 function AddUserForm({
   onCreated,
 }: {
-  onCreated: (user: { id: string; name: string; email: string; team: string | null; monthlyBudget: number; status: string }) => void;
+  onCreated: (user: {
+    id: string;
+    name: string;
+    email: string;
+    team: string | null;
+    monthlyBudget: number;
+    status: string;
+    anthropicWorkspaceId: string | null;
+  }) => void;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [team, setTeam] = useState("");
   const [monthlyBudget, setMonthlyBudget] = useState("100");
+  const [anthropicWorkspaceId, setAnthropicWorkspaceId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -81,7 +164,7 @@ function AddUserForm({
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, team, monthlyBudget }),
+        body: JSON.stringify({ name, email, team, monthlyBudget, anthropicWorkspaceId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -93,6 +176,7 @@ function AddUserForm({
       setEmail("");
       setTeam("");
       setMonthlyBudget("100");
+      setAnthropicWorkspaceId("");
     } finally {
       setLoading(false);
     }
@@ -101,7 +185,7 @@ function AddUserForm({
   return (
     <form onSubmit={handleSubmit} className="card">
       <h2 className="mb-3 font-semibold text-slate-900">Add pilot user</h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
         <input
           className="input"
           placeholder="Name"
@@ -133,6 +217,12 @@ function AddUserForm({
           onChange={(e) => setMonthlyBudget(e.target.value)}
           required
         />
+        <input
+          className="input"
+          placeholder="Anthropic workspace ID (optional)"
+          value={anthropicWorkspaceId}
+          onChange={(e) => setAnthropicWorkspaceId(e.target.value)}
+        />
       </div>
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
       <button type="submit" className="btn mt-3" disabled={loading}>
@@ -155,7 +245,9 @@ function UserRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [logging, setLogging] = useState(false);
+  const [editingWorkspace, setEditingWorkspace] = useState(false);
   const [budgetInput, setBudgetInput] = useState(String(user.monthlyBudget));
+  const [workspaceInput, setWorkspaceInput] = useState(user.anthropicWorkspaceId ?? "");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -177,6 +269,27 @@ function UserRow({
       }
       onUpdated({ ...user, monthlyBudget: data.monthlyBudget });
       setEditing(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveWorkspace() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anthropicWorkspaceId: workspaceInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to update");
+        return;
+      }
+      onUpdated({ ...user, anthropicWorkspaceId: data.anthropicWorkspaceId });
+      setEditingWorkspace(false);
     } finally {
       setBusy(false);
     }
@@ -240,6 +353,45 @@ function UserRow({
         <div className="text-xs text-slate-400">{user.email}</div>
       </td>
       <td className="px-4 py-3 text-slate-600">{user.team || "—"}</td>
+      <td className="px-4 py-3">
+        {editingWorkspace ? (
+          <div className="flex items-center gap-2">
+            <input
+              className="input w-40"
+              placeholder="wrkspc_..."
+              value={workspaceInput}
+              onChange={(e) => setWorkspaceInput(e.target.value)}
+            />
+            <button className="btn-outline" onClick={saveWorkspace} disabled={busy}>
+              Save
+            </button>
+            <button
+              className="btn-outline"
+              onClick={() => setEditingWorkspace(false)}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="text-xs text-slate-600">
+              {user.anthropicWorkspaceId ?? <span className="text-slate-400">Not linked</span>}
+            </div>
+            {user.lastSyncedAt && (
+              <div className="text-xs text-slate-400">
+                Synced {new Date(user.lastSyncedAt).toLocaleString()}
+              </div>
+            )}
+            <button
+              className="text-xs text-slate-500 hover:text-slate-800"
+              onClick={() => setEditingWorkspace(true)}
+            >
+              {user.anthropicWorkspaceId ? "Edit" : "Link workspace"}
+            </button>
+          </div>
+        )}
+      </td>
       <td className="px-4 py-3">
         {editing ? (
           <div className="flex items-center gap-2">

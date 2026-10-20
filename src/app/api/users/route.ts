@@ -12,6 +12,9 @@ export async function POST(req: Request) {
   const email = String(body.email ?? "").trim();
   const team = body.team ? String(body.team).trim() : null;
   const monthlyBudget = Number(body.monthlyBudget ?? 0);
+  const anthropicWorkspaceId = body.anthropicWorkspaceId
+    ? String(body.anthropicWorkspaceId).trim()
+    : null;
 
   if (!name || !email) {
     return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
@@ -24,6 +27,7 @@ export async function POST(req: Request) {
         email,
         team,
         monthlyBudget: Number.isFinite(monthlyBudget) ? monthlyBudget : 0,
+        anthropicWorkspaceId,
       },
     });
     return NextResponse.json(user, { status: 201 });
