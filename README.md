@@ -21,15 +21,42 @@ numbers automatically.
 
 ## Stack
 
-Next.js (App Router) + TypeScript + Tailwind CSS, with Prisma + SQLite for
-storage. No external services required to run it.
+Next.js (App Router) + TypeScript + Tailwind CSS, with Prisma + Postgres for
+storage.
 
-## Getting started
+## Deploying on Vercel (recommended — no terminal needed)
+
+1. Go to [vercel.com](https://vercel.com) and sign up / log in (you can use
+   your GitHub account).
+2. **Add New → Project**, import the `carmelinbar/my-first-claude-app`
+   repository.
+3. In the import screen, open **Git Branch** and pick
+   `claude/pensive-archimedes-lysyb2` (or set it later in
+   **Settings → Git → Production Branch**). Click **Deploy** — it will fail
+   the first time because there's no database yet, that's expected.
+4. Open the project, go to the **Storage** tab, **Create Database → Postgres**,
+   and connect it to this project. Vercel wires up the `POSTGRES_PRISMA_URL`
+   and `POSTGRES_URL_NON_POOLING` environment variables automatically — you
+   don't need to type any connection string yourself.
+5. Go to **Deployments** and **Redeploy** the latest deployment. This build
+   creates the database tables automatically (see `package.json`'s `build`
+   script) and should succeed.
+6. Open the URL Vercel gives you (something like
+   `my-first-claude-app.vercel.app`) — that's the live app.
+
+There is no login — anyone with that URL has full admin access. Don't share
+the link beyond the people who should have that access; Vercel's paid plans
+offer a password-protection option for the whole site if you need one.
+
+## Running locally instead
+
+Requires your own Postgres database (e.g. a free one from
+[neon.com](https://neon.com) or Vercel's Storage tab).
 
 ```bash
 npm install
-cp .env.example .env
-npm run db:push        # creates dev.db from the Prisma schema
+cp .env.example .env   # fill in your Postgres connection strings
+npm run db:push        # creates the tables from the Prisma schema
 npm run dev            # http://localhost:3000
 ```
 
@@ -38,14 +65,13 @@ dashboard isn't empty on first run (it no-ops if you already have data).
 
 ## Environment variables
 
-| Variable       | Purpose                                |
-| -------------- | --------------------------------------- |
-| `DATABASE_URL` | SQLite file path, e.g. `file:./dev.db`  |
+| Variable                   | Purpose                                              |
+| --------------------------- | ----------------------------------------------------- |
+| `POSTGRES_PRISMA_URL`       | Pooled Postgres connection string, used by the app     |
+| `POSTGRES_URL_NON_POOLING`  | Direct Postgres connection string, used for schema changes |
 
-There is no login — anyone who can reach the app's URL has full admin
-access. Fine for a local pilot tool only you can reach; if you ever deploy
-this somewhere reachable by others, put access control back in front of it
-(see "Known limitations" below).
+On Vercel, both are set automatically once you connect a Postgres database
+in the Storage tab (step 4 above).
 
 ## Data model
 
