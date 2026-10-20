@@ -35,6 +35,34 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
     );
   }
 
+  function applyImport(
+    created: {
+      id: string;
+      name: string;
+      email: string;
+      team: string | null;
+      monthlyBudget: number;
+      status: string;
+      anthropicWorkspaceId: string | null;
+      syncedSpend: number;
+    }[],
+    linked: { id: string; anthropicWorkspaceId: string }[]
+  ) {
+    setUsers((prev) => {
+      const withLinks = prev.map((u) => {
+        const link = linked.find((l) => l.id === u.id);
+        return link ? { ...u, anthropicWorkspaceId: link.anthropicWorkspaceId } : u;
+      });
+      const newUsers: UserWithUsage[] = created.map((u) => ({
+        ...u,
+        useCaseCount: 0,
+        lastSyncedAt: null,
+        spent: u.syncedSpend,
+      }));
+      return [...withLinks, ...newUsers];
+    });
+  }
+
   return (
     <div className="space-y-6">
       <AddUserForm
@@ -45,6 +73,8 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
           ])
         }
       />
+
+      <ImportMembersBar onImported={applyImport} />
 
       <SyncUsageBar onSynced={applySync} />
 
@@ -80,6 +110,66 @@ export default function UsersManager({ initialUsers }: { initialUsers: UserWithU
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function ImportMembersBar({
+  onImported,
+}: {
+  onImported: (
+    created: {
+      id: string;
+      name: string;
+      email: string;
+      team: string | null;
+      monthlyBudget: number;
+      status: string;
+      anthropicWorkspaceId: string | null;
+      syncedSpend: number;
+    }[],
+    linked: { id: string; anthropicWorkspaceId: string }[]
+  ) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleImport() {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/import-members", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to import members");
+        return;
+      }
+      onImported(data.created ?? [], data.linked ?? []);
+      setMessage(data.message ?? "Import complete.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 className="font-semibold text-slate-900">Anthropic organization members</h2>
+        <p className="text-sm text-slate-500">
+          Pulls your organization&apos;s member list from the Anthropic Console and adds anyone
+          not already here (matched by email). Also links a workspace automatically when a member
+          belongs to exactly one.
+        </p>
+      </div>
+      <div className="text-right">
+        <button className="btn" onClick={handleImport} disabled={busy}>
+          {busy ? "Importing..." : "Import org members"}
+        </button>
+        {message && <p className="mt-1 text-xs text-slate-500">{message}</p>}
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </div>
     </div>
   );

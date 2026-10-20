@@ -16,6 +16,9 @@ they're using it for, and stop budget overruns before they happen.
 - **Real Anthropic usage (optional)** — link a user to an Anthropic Console
   workspace and click "Sync real usage" to pull their actual month-to-date
   spend straight from the Anthropic Cost API, instead of logging it by hand.
+- **Import org members (optional)** — click "Import org members" to pull
+  your Anthropic organization's member list in as users, instead of adding
+  everyone by hand.
 
 Usage/cost can be entered manually (via "+ Log usage") or pulled from the
 real Anthropic Cost API per user (see "Syncing real Anthropic usage"
@@ -110,6 +113,24 @@ individual API key — so workspace-per-user is what makes it possible to
 attribute real dollar cost to the right pilot participant. Click "Sync real
 usage" again any time to refresh; data usually shows up within a few
 minutes of being incurred.
+
+## Importing organization members
+
+Rather than adding every pilot participant by hand, click **Import org
+members** on the Users page. With the same `ANTHROPIC_ADMIN_KEY` set, it
+will:
+
+- Fetch your organization's member list from the Anthropic Console.
+- Add anyone not already here (matched by email) as a new user, budget
+  defaulted to $0 — set it after import.
+- Automatically fill in a user's Anthropic workspace when they belong to
+  exactly one (skips it when a member is in zero or several workspaces,
+  since there's no way to guess which one is theirs — set it by hand on
+  the Users page for those).
+
+Safe to click more than once — it only adds users that don't already exist
+and only fills in a workspace link that's currently empty; it never
+overwrites a workspace you've already set by hand.
 
 ## Data model
 
